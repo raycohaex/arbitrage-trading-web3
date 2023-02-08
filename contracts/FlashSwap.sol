@@ -94,4 +94,22 @@ contract FlashSwap {
         // Pay back loan
         IERC20(borrow).safeTransfer(pair, repayAmount);
     }
+
+    function placeTrade(address from, address to, uint256 amount) private returns (uint256) {
+        address pair = IUniswapV2Factory(PANCAKE_FACTORY).getPair(from, to);
+        require(pair != address(0), "Pair does not exist");
+
+        // amount out
+        address[] memory path = new address[](2);
+        path[0] = from;
+        path[1] = to;
+
+        uint256 amountRequired = IUniswapV2Router01(PANCAKE_ROUTER).getAmountsOut(amount, path)[1];
+
+        // execute arbitrage
+        uint amountReceived = IUniswapV2Router01(PANCAKE_ROUTER).swapExactTokensForTokens(amount, amountRequired, path, address(this), deadline)[1];
+    
+        require(amountReceived > 0, "Exit: trade failed");
+        return amountReceived;
+    }
 }
