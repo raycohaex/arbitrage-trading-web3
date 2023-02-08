@@ -9,6 +9,10 @@ import "./interfaces/IUniswapV2Pair.sol";
 import "./interfaces/IUniswapV2Factory.sol";
 import "./interfaces/IERC20.sol";
 
+/**
+ * @title FlashSwap
+ * @dev Flash swap contract to engage in arbitrage on the bsc network
+ */
 contract FlashSwap {
     using SafeERC20 for IERC20; // For approval
     
@@ -26,27 +30,22 @@ contract FlashSwap {
     uint256 private constant MAX_INT = 2**256 - 1;
 
     /**
-    * Funds the contract with tokens
-    * @param holder
-    * @param token 
-    * @param amount
+    * @dev Funds the contract with tokens
     */
     function fundContract(address holder, address token, uint256 amount) public {
         IERC20(token).safeTransferFrom(holder, address(this), amount);
     }
 
     /**
-    * Get the balance of a token in the contract
-    * @param token
+    * @dev Get the balance of a token in the contract
     */
     function getBalance(address token) public view returns (uint256) {
         return IERC20(token).balanceOf(address(this));
     }
 
     /**
-    * Receive loan to engage in arbitrage
-    * @param borrow
-    * @param amount
+    * @dev Receive loan to engage in arbitrage
+    * @param borrow user who initiated the flash loan
     */
     function initArbitrage(address borrow, uint256 amount) external {
         IERC20(BUSD).safeApprove(address(PANCAKE_ROUTER), MAX_INT);
@@ -72,9 +71,8 @@ contract FlashSwap {
     }
     
     /**
-    * Swap tokens on PancakeSwap
-    * @param borrow
-    * @param amount
+    * @dev Swap tokens on pancakeswap
+    * @param sender user who initiated the swap 
     */
     function pancakeSwap(address sender, uint256 amount) external {
         address token0 = IUniswapV2Pair(msg.sender).token0();
@@ -87,5 +85,11 @@ contract FlashSwap {
         // Decode the data we encoded in the swap function
         (address borrow, uint256 amount) = abi.decode(msg.data, (address, uint256));
 
+        // Calculate the fee to pay back
+        uint256 fee = ((amount * 3) / 997) + 1;
+        uint256 repayAmount = amount + fee;
+
+        // Pay back loan
+        IERC20(borrow).safeTransfer(pair, repayAmount);
     }
 }
