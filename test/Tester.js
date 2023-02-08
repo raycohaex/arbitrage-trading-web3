@@ -1,7 +1,7 @@
 const { expect, assert } = require('chai');
 const { ethers } = require('hardhat');
-const { impersonateFundErc20 } = require('../utils/utilities');
-
+const { impersonateFundErc20 } = require('../util/utilities');
+const { inputToConfig } = require("@ethereum-waffle/compiler");
 const { abi } = require('../artifacts/contracts/interfaces/IERC20.sol/IERC20.json');
 
 const provider = waffle.provider;
@@ -41,7 +41,12 @@ describe('Simulate arbitrage and test smart contract', function () {
         await impersonateFundErc20(tokenBase, WHALE_ADDRESS, FLASHSWAP.address, initFundingHuman);
     });
 
-    describe('Arbitrage', function () {
-        
+    describe("Arbitrage tests", function () {
+        it("Contract is funded with 100 BUSD", async function () {
+            const balance = await FLASHSWAP.getBalance(BUSD);
+            const balanceHuman = ethers.utils.formatUnits(balance, DECIMALS);
+
+            expect(Number(balanceHuman)).to.equal(Number(initFundingHuman));
+        });
     });
 });
