@@ -119,8 +119,6 @@ contract FlashSwap {
         path[1] = to;
 
         uint256 amountRequired = IUniswapV2Router01(PANCAKE_ROUTER).getAmountsOut(amount, path)[1];
-
-        // execute arbitrage
         uint amountReceived = IUniswapV2Router01(PANCAKE_ROUTER).swapExactTokensForTokens(amount, amountRequired, path, address(this), deadline)[1];
     
         require(amountReceived > 0, "Exit: trade failed");
