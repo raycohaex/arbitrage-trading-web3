@@ -23,9 +23,9 @@ contract FlashSwap {
     // from BscScan
     address private constant WBNB = 0xbb4CdB9CBd36B01bD1cBaEBF2De08d9173bc095c;
     address private constant BUSD = 0xe9e7CEA3DedcA5984780Bafc599bD69ADd087D56;
-    address private constant USDT = 0x55d398326f99059fF775485246999027B3197955; // Binance peg
     address private constant CAKE = 0x0E09FaBB73Bd3Ade0a17ECC321fD13a19e81cE82;
     address private constant CROX = 0x2c094F5A7D1146BB93850f629501eB749f6Ed491;
+    address[3] tokens = [BUSD, CROX, CAKE];
 
     uint256 private deadline = block.timestamp + 1 days;
     uint256 private constant MAX_INT = 2**256 - 1;
@@ -49,10 +49,12 @@ contract FlashSwap {
     * @param borrow user who initiated the flash loan
     */
     function startArbitrage(address borrow, uint256 amount) external {
-        IERC20(BUSD).safeApprove(address(PANCAKE_ROUTER), MAX_INT);
-        IERC20(USDT).safeApprove(address(PANCAKE_ROUTER), MAX_INT);
-        IERC20(CROX).safeApprove(address(PANCAKE_ROUTER), MAX_INT);
-        IERC20(CAKE).safeApprove(address(PANCAKE_ROUTER), MAX_INT);
+        // Define an array of token addresses
+
+        // Loop through the array and approve each token for transfer
+        for (uint256 i = 0; i < tokens.length; i++) {
+            IERC20(tokens[i]).safeApprove(address(PANCAKE_ROUTER), MAX_INT);
+        }
 
         // Get the pair address
         address pair = IUniswapV2Factory(PANCAKE_FACTORY).getPair(borrow, WBNB);
@@ -63,7 +65,7 @@ contract FlashSwap {
         address token1 = IUniswapV2Pair(pair).token1(); 
         uint256 amount0Out = borrow == token0 ? amount : 0;
         uint256 amount1Out = borrow == token1 ? amount : 0;
-    
+
         // encode the data so we can pass it to the swap function
         bytes memory data = abi.encode(borrow, amount, msg.sender);
 
@@ -85,11 +87,23 @@ contract FlashSwap {
         require(sender == address(this), "Unauthorized");
 
         // Decode the data we encoded in the swap function
-        (address borrow, uint256 amount) = abi.decode(data, (address, uint256));
+        (address borrow, uint256 amount, address destination) = abi.decode(data, (address, uint256, address));
 
         // Calculate the fee to pay back
         uint256 fee = ((amount * 3) / 997) + 1;
         uint256 repayAmount = amount + fee;
+
+        uint256 loanAmount = amount0 > 0 ? amount0 : amount1;
+
+        // Try to place arbitrage trades, as long as we are profitable
+        uint256 tradedCoin1 = placeTrade(tokens[0], tokens[1], loanAmount);
+        uint256 tradedCoin2 = placeTrade(tokens[1], tokens[2], tradedCoin1);
+        uint256 tradedCoin3 = placeTrade(tokens[2], tokens[0], tradedCoin2);
+        bool profitable = isProfitable(loanAmount, tradedCoin3);
+        require(profitable, "unprofitable trade");
+
+        IERC20 other = IERC20(BUSD);
+        other.safeTransfer(destination, tradedCoin3 - repayAmount);
 
         // Pay back loan
         IERC20(borrow).safeTransfer(pair, repayAmount);
@@ -111,5 +125,9 @@ contract FlashSwap {
     
         require(amountReceived > 0, "Exit: trade failed");
         return amountReceived;
+    }
+
+    function isProfitable(uint256 input, uint256 output) private returns (bool) {
+        return output > input;
     }
 }

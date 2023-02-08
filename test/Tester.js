@@ -59,6 +59,10 @@ describe('Simulate arbitrage and test smart contract', function () {
             const contractBalanceHuman = ethers.utils.formatUnits(contractBalance, DECIMALS);
 
             console.log("Contract balance after arbitrage: ", contractBalanceHuman);
+
+            const croxBalance = await FLASHSWAP.getBalance(CROX);
+            const croxBalanceFormatted = ethers.utils.formatUnits(croxBalance, DECIMALS);
+            console.log("CROX balance after arbitrage: ", croxBalanceFormatted);
         });
 
     });
