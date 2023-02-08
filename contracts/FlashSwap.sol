@@ -4,6 +4,7 @@ pragma solidity >=0.6.6;
 import "hardhat/console.sol";
 import "./lib/UniswapV2Library.sol";
 import "./lib/SafeERC20.sol";
+import "./interfaces/IUniswapV2Router01.sol";
 import "./interfaces/IUniswapV2Router02.sol";
 import "./interfaces/IUniswapV2Pair.sol";
 import "./interfaces/IUniswapV2Factory.sol";
@@ -47,7 +48,7 @@ contract FlashSwap {
     * @dev Receive loan to engage in arbitrage
     * @param borrow user who initiated the flash loan
     */
-    function initArbitrage(address borrow, uint256 amount) external {
+    function startArbitrage(address borrow, uint256 amount) external {
         IERC20(BUSD).safeApprove(address(PANCAKE_ROUTER), MAX_INT);
         IERC20(USDT).safeApprove(address(PANCAKE_ROUTER), MAX_INT);
         IERC20(CROX).safeApprove(address(PANCAKE_ROUTER), MAX_INT);
@@ -64,26 +65,27 @@ contract FlashSwap {
         uint256 amount1Out = borrow == token1 ? amount : 0;
     
         // encode the data so we can pass it to the swap function
-        bytes memory data = abi.encode(borrow, amount);
+        bytes memory data = abi.encode(borrow, amount, msg.sender);
 
         // Get loan
         IUniswapV2Pair(pair).swap(amount0Out, amount1Out, address(this), data);
     }
     
-    /**
+/**
     * @dev Swap tokens on pancakeswap
     * @param sender user who initiated the swap 
     */
-    function pancakeSwap(address sender, uint256 amount) external {
+    function pancakeCall(address sender, uint256 amount0, uint256 amount1, bytes calldata data) external {
         address token0 = IUniswapV2Pair(msg.sender).token0();
         address token1 = IUniswapV2Pair(msg.sender).token1();
         address pair = IUniswapV2Factory(PANCAKE_FACTORY).getPair(token0, token1);
 
+        require(pair != address(0), "Pair does not exist");
         require(pair == msg.sender, "Unauthorized");
         require(sender == address(this), "Unauthorized");
 
         // Decode the data we encoded in the swap function
-        (address borrow, uint256 amount) = abi.decode(msg.data, (address, uint256));
+        (address borrow, uint256 amount) = abi.decode(data, (address, uint256));
 
         // Calculate the fee to pay back
         uint256 fee = ((amount * 3) / 997) + 1;

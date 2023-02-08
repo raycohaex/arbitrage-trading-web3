@@ -24,7 +24,7 @@ describe('Simulate arbitrage and test smart contract', function () {
 
         // whale needs balance
         const whaleBalance = await provider.getBalance(WHALE_ADDRESS);
-        expect(whaleBalance).not.equal(0);
+        expect(whaleBalance).not.equal("0");
 
         // deploy flashswap contract
         const flashSwap = await ethers.getContractFactory('FlashSwap');
@@ -42,11 +42,24 @@ describe('Simulate arbitrage and test smart contract', function () {
     });
 
     describe("Arbitrage tests", function () {
+
         it("Contract is funded with 100 BUSD", async function () {
             const balance = await FLASHSWAP.getBalance(BUSD);
             const balanceHuman = ethers.utils.formatUnits(balance, DECIMALS);
 
             expect(Number(balanceHuman)).to.equal(Number(initFundingHuman));
         });
+
+        it("Executes arbitrage", async function () {
+            txArbitrage = await FLASHSWAP.startArbitrage(BUSD, BORROW_AMOUNT);
+
+            assert(txArbitrage);
+
+            const contractBalance = await FLASHSWAP.getBalance(BUSD);
+            const contractBalanceHuman = ethers.utils.formatUnits(contractBalance, DECIMALS);
+
+            console.log("Contract balance after arbitrage: ", contractBalanceHuman);
+        });
+
     });
 });
